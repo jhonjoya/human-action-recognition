@@ -1,0 +1,82 @@
+# Human Activity Recognition Project
+## Jhon Joya - May 2023
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r global_options, include=FALSE}
+library(knitr)
+library(caret)
+opts_chunk$set(echo=F, eval=T)
+```
+
+In the Practical Machine Learning course of the Data Science Specialization the project consist in predict the activity of some users of wearable like Jawbone Up, Nike FuelBand and Fitbit.
+
+The data disponible from the source:
+Training data: https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+Testing data: https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+
+All the information about the HAR Project data collect is disponible in: http://web.archive.org/web/20161224072740/http:/groupware.les.inf.puc-rio.br/har
+
+### 1. Data preparation:
+```{r echo=TRUE}
+building <- read.csv("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv")
+evaluating <- read.csv("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv")
+str(building)
+```
+The measures and the all variables:
+```{r echo=TRUE}
+dim(building); dim(evaluating)
+```
+The size of the sample is to big, and there are many variables with NAs values. The next step is adjust the number of the predictors to simplify the analysis and the ML model.
+
+```{r echo=TRUE}
+inValidVars <- function(dataFrame){
+      noValidList <- c(1,2,3,4,5,6)
+      for(column in 1:ncol(dataFrame)){
+            if(class(dataFrame[,column]) == "character" & column > 6 &column != 160){
+                  numericColumn <- as.numeric(dataFrame[,column])
+                  if(sum(is.na(numericColumn))/length(numericColumn) >= 0.5){
+                        noValidList <- append(noValidList,column)
+                  }
+            }else if(sum(is.na(dataFrame[,column]))/length(dataFrame[,column]) >= 0.5){
+                  noValidList <- append(noValidList,column)
+            }else if(class(dataFrame[,column]) == "numeric" & sum(is.na(dataFrame[,column]))/length(dataFrame[,column]) >= 0.5){
+                  noValidList <- append(noValidList,column)
+            }
+      }
+      noValidList
+}
+
+newBuilding <- building[,-inValidVars(building)]
+newEvaluating <- evaluating[,-inValidVars(building)]
+inTrain <- createDataPartition(y = newBuilding$classe,
+                               p = 0.3, list = FALSE)
+
+training <- newBuilding[inTrain,]
+training$classe <- as.factor(training$classe)
+
+testing <- newBuilding[-inTrain,]
+testing$classe <- as.factor(testing$classe)
+```
+
+Then, the model select is "random forest", with a control "cross-validation" and six re sampling iterators.
+
+```{r echo=TRUE}
+modFit <- train(classe ~ ., data = training, method = "rf", 
+                 prof = TRUE, trControl = trainControl(method = "cv", number = 6, allowParallel = TRUE))
+pred <- predict(modFit, newdata = testing)
+confusionMatrix(pred,testing$classe)
+```
+
+The last step consist in predict the testing data from the source
+```{r echo=TRUE}
+predict(modFit, newdata = evaluating)
+```
+
+## Appendix: R Code
+```{r ref.label=knitr::all_labels(), echo = T, eval = F}
+
+```
+
